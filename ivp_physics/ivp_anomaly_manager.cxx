@@ -195,8 +195,18 @@ void IVP_Anomaly_Manager::inter_penetration(IVP_Mindist *mindist,
 
   IVP_Core *moving_core = moving_obj->get_core();
   if (IVP_MTIS_SIMULATED(moving_core->movement_state)) {
-    world_push_vec.mult(speed_change);
-    moving_obj->async_add_speed_object_ws(&world_push_vec);
+    // Source 1 parity: avoid accumulating duplicate rescue pushes when
+    // multiple convex pieces report penetration in the same direction.
+    IVP_U_Float_Point dest_speed;
+    dest_speed.add_multiple(&moving_core->delta_world_f_core_psis,
+                            &moving_core->speed_change, 1.0f);
+    const IVP_FLOAT current_speed =
+        dest_speed.dot_product(&world_push_vec);
+
+    if (current_speed < speed_change * 0.1f) {
+      world_push_vec.mult(speed_change);
+      moving_obj->async_add_speed_object_ws(&world_push_vec);
+    }
   }
 
   IVP_IF(1) {
